@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slimerun</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="main-container">
+    <button id="game_state">Start/stop</button>
+    
+    <div class="canvas-section">
+      <canvas id="slimerun-game" width="600" height="600"></canvas>
+    </div>
+
+    <div class="main-menu menu closed" id="main_menu">
+      <h1 class="menu-header">Slimerun</h1>
+      <ul class="menu-list">
+        <li class="menu-item" id="menu_button_start">
+          START
+        </li>
+        <li class="menu-item">
+          CONTINUE
+        </li>
+        <li class="menu-item">
+          SETTINGS
+        </li>
+        <li class="menu-item">
+          CREDITS
+        </li>
+      </ul>
+    </div>
+  
+    <div class="main-menu menu closed" id="pause_menu">
+      pause
+    </div>
+
+  </main>
+  <script src="index.js" type="module"></script>
+</body>
+</html>
