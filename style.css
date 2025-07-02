@@ -84,9 +84,9 @@ canvas{
   }
 }
 
-#game_start{
+#game_state{
   position: absolute;
   top: 15px;
   right: 15px;
-  background-color: red;
+  background-color: white;
 }
