@@ -5,7 +5,7 @@ import { collisionTile } from './collisionTile.js';
 //*DATA
 const canvas = document.getElementById('slimerun-game')
 const context = canvas.getContext('2d')
-resizeCanvas()
+
 
 
 let tilesArray = []
@@ -26,13 +26,13 @@ let statesArray = [
     framecount: 0
   },
   {
-    type: 'sliding',
-    framesTotal: 4,
+    type: 'walking',
+    framesTotal: 24,
     framecount: 0
   },
   {
-    type: 'moving',
-    framesTotal: 24,
+    type: 'sliding',
+    framesTotal: 8,
     framecount: 0
   },
   {
@@ -40,11 +40,22 @@ let statesArray = [
     framesTotal: 24,
     framecount: 0
   },
+  {
+    type: 'crouching',
+    framesTotal: 24,
+    framecount: 0
+  },
+  {
+    type: 'landing',
+    framesTotal: 8,
+    framecount: 0
+  },
 ]
 let playerSquare = 64
-let player = new Slime(playerSquare, playerSquare, 0, canvas.height - playerSquare*3, statesArray[2], null)
-let playerSpeedX = 12
-let playerSpeedY = 6
+let player = new Slime(playerSquare, playerSquare, 0, canvas.height - playerSquare, statesArray[0], null)
+let playerSpeedX = 8
+let cameraFallingSpeed = 28
+let cameraJumpingSpeed = 16
 
 let tileSize = 64
 
@@ -66,19 +77,64 @@ let playerMovement = {
 let opositesVertical = false
 let opositesHorizontal = false
 
+const camera = {
+  get posX () {
+    return -(canvas.width / 4 - player.posX)
+  },
+  get posY () {
+    return -(canvas.height / 4 - player.posY)
+  },
+}
+
+let movingTo = {
+  up: false,
+  down: false,
+  left: false,
+  right: false
+}
+
+resizeCanvas()
+
 //*Methods
+
+function gameLoop(){
+  if(!isGameOn) return
+  clearCanvas()
+  updatePlayer()
+  drawCanvas()
+  drawMap()
+  drawCamera()
+  drawPlayer()
+
+  if(!enemyCollision) window.requestAnimationFrame(gameLoop)
+}
+
 function clearCanvas(){
   context.clearRect(0,0,player.width,player.height);
 }
 
 function drawPlayer(){
+  context.fillStyle = 'white';
+  context.fillRect(player.posX,player.posY,player.width,player.height + 32);
+  console.log('drawing coord: ',player.posY + player.height + 32);
   context.fillStyle = 'black';
   context.fillRect(player.posX,player.posY,player.width,player.height);
 }
 
 function resizeCanvas(){
-  canvas.width = 768 //window.innerWidth
-  canvas.height = 894 //window.innerHeight - 3.0001
+  let width = Math.ceil(window.innerWidth/64)*64 
+  let height = Math.ceil(window.innerHeight/64)*64
+  canvas.width = width 
+  canvas.height =  height
+
+  /* console.log(window.innerWidth);
+  console.log(Math.ceil(window.innerWidth/64)*64); */
+}
+
+function drawCamera(){
+  context.strokeStyle='red';
+  context.strokeRect(camera.posX + player.width/2, camera.posY, canvas.width/2, canvas.height/1.5);
+  context.fillRect(camera.posX, camera.posY, 64, 64)
 }
 
 function drawCanvas(){
@@ -87,52 +143,102 @@ function drawCanvas(){
   context.fillRect(0,0,canvas.width, canvas.height);
 }
 
-function drawMap(map){
-  /* 
-  //*first make the canvas smaller to test drawing outside - done
-  //*then make each collision tile, an object from a class, which means create the tile array separate from the drawing process, probably just once even - done
-  //*then make the collision detection for them
-  //*then implement the buffer approach so that I potentially dont have to redraw everything on every frame
-  //*make moving viewport with character across the map
-  */
+function drawMap(){
+  /*
+  ^ first make the canvas smaller to test drawing outside - done
+  ^ then make each collision tile, an object from a class, which means create the tile array separate from the drawing process, probably just once even - done
+  ^ then make the collision detection for them - done
+  TODO then implement the buffer approach so that I potentially dont have to redraw everything on every frame - for later
+  ^ make moving viewport with character across the map - done
+  */  
+
+
+  movingTo = {
+    up: false,
+    down: false,
+    left: false,
+    right: false
+  }
+
+  //* if viewport is past right canvas border
+  if(camera.posX + (canvas.width/2) + (player.width/2) > canvas.width){
+    movingTo.right = true
+  }
+
+  //* if viewport is past top canvas border
+  if(camera.posY < 0){
+    movingTo.up = true
+  }
+
+  if(camera.posX + player.width/2 < 0){
+    movingTo.left = true
+  }
+
+  //* if viewport is past bottom canvas border
+  let isTilesBelow = false
+  if(camera.posY + (canvas.height/1.5) > canvas.height){
+    movingTo.down = true
+
+    for (let i = 0; i < tilesArray.length; i++) {
+      if(tilesArray[i].posY + tilesArray[i].height > camera.posY + canvas.height/1.5){
+        isTilesBelow = true
+        console.log("there's a tile below");
+        break
+      }
+      
+    }
+
+  }
+
   for (let i = 0; i < tilesArray.length; i++) {
-    context.fillStyle='cyan';
+    context.fillStyle='teal';
+    /* if (i % 2 == 0) { 
+      context.fillStyle='cyan';
+    }else context.fillStyle='white'; */
+
+    if(movingTo.right && playerMovement.right){
+      tilesArray[i].posX -= playerSpeedX
+    }
+    if(movingTo.left && playerMovement.left){
+      tilesArray[i].posX += playerSpeedX
+    }
+
+    if(movingTo.up && player.state.type == 'jumping'){
+      tilesArray[i].posY += cameraJumpingSpeed/1.5
+    }
+
+    if(movingTo.down && player.state.type == 'falling' && isTilesBelow){
+      tilesArray[i].posY -= cameraFallingSpeed*1.25
+    }
+
+
+
     context.fillRect(tilesArray[i].posX, tilesArray[i].posY, tilesArray[i].width, tilesArray[i].height);
   }
 }
 
-function gameLoop(){
-  if(!isGameOn) return
-  clearCanvas()
-  updatePlayer()
-  drawCanvas()
-  drawMap(map1)
-  drawPlayer()
-
-  if(!enemyCollision) window.requestAnimationFrame(gameLoop)
-}
-
 function updatePlayer(){
-  //* set movement variables
-  
   opositesVertical = false
   opositesHorizontal = false
 
-  //* increase/decrease vertical movement speeds
+  //* increase/decrease vertical movement speeds if needed
   if(player.state.type == 'jumping') gravity -= 4
-  if(player.state.type == 'falling') antigravity += 4
+  if(player.state.type == 'falling') {
+    if (antigravity < 28) {
+      cameraFallingSpeed += 4
+      antigravity += 4
+    }
+  }
 
   //* if crouch is pressed, halve the horizontal speed
-  if(playerMovement.crouch == true) playerSpeedX = 6
+  if(playerMovement.crouch == true && playerSpeedX != 3) playerSpeedX = 3
+
   //* if crouch is not pressed, horizontal speed is normal
-  if(playerMovement.crouch == false) playerSpeedX = 12
+  if(playerMovement.crouch == false && playerSpeedX != 8) playerSpeedX = 8
 
   //* if opposite directions are held, do not try to move
   if(playerMovement.up && playerMovement.down) opositesVertical = true
-  if(playerMovement.left && playerMovement.right) opositesHorizontal = true  
-
-  //* make the normal state is falling but not the same falling as from going down on a jump?
-
+  if(playerMovement.left && playerMovement.right) opositesHorizontal = true
 
 
   //* horizontal movement
@@ -150,6 +256,11 @@ function updatePlayer(){
             player.posX = tilesArray[i].posX - tilesArray[i].width  
           }
         }
+
+        //* if viewport goes to the right, change the player position relative to the map movement
+        if(movingTo.right){
+          player.posX -= playerSpeedX
+        }
       }
     }
 
@@ -166,6 +277,11 @@ function updatePlayer(){
             player.posX = tilesArray[i].posX + tilesArray[i].width  
           }
         }
+
+        //* if viewport goes to the left, change the player position relative to the map movement
+        if(movingTo.left){
+          player.posX += playerSpeedX
+        }
       }
       
     }
@@ -173,16 +289,16 @@ function updatePlayer(){
   }
 
   //* if jump pressed, and not already jumping or falling, jump
-  if(playerMovement.jump && player.state.type != 'jumping' && player.state.type != 'falling'){
+  if(playerMovement.jump && player.state.type != 'jumping' && player.state.type != 'falling' && player.state.framecount > 8){
     player.state = statesArray[1]
-    player.state.framecount = 0
   }
 
-  
-  if(player.state.type == 'idle'){
+  //* if player is not touching a tile, and inside the canvas, fall by gravity
+  if(player.state.type != 'jumping' && player.state.type != 'falling'){
 
     let shoudlBeFalling = false
 
+    console.log('checking coord: ',player.getBorders().down + 32);
     player.posY = player.getBorders().down + 32
 
     for (let i = 0; i < tilesArray.length; i++) {
@@ -190,9 +306,15 @@ function updatePlayer(){
         shoudlBeFalling = true
       } else shoudlBeFalling = false
     }
+
     player.posY -= (player.height + 32)
+
     if(shoudlBeFalling){
+      console.log('should');
       player.state = statesArray[2]
+    }else {
+      console.log('shouldn`t');
+      player.state = statesArray[0]
     }
   }
 
@@ -214,7 +336,6 @@ function updatePlayer(){
   //* if in jumping state, and jumping time has passed, stop going up, change state to falling, reset framecount and gravity
   if(player.state.type == 'jumping' && player.state.framecount >= 12){
     player.state = statesArray[2]
-    player.state.framecount = 0
     gravity = 48
   }
 
@@ -224,6 +345,7 @@ function updatePlayer(){
     if(isPlayerNotInBounds('down')){
       player.posY = canvas.height - player.height
       player.state = statesArray[0]
+      cameraFallingSpeed = 28
       antigravity = 0
       return
     }
@@ -234,13 +356,15 @@ function updatePlayer(){
       if (newCollisionCheck(player, tilesArray[i])) {
         player.posY = tilesArray[i].posY - player.height
         player.state = statesArray[0]
+        cameraFallingSpeed = 28
         antigravity = 0
       }
     }
+
   }
 
+  console.log(player.state.type, ': ',player.state.framecount);
   player.state.framecount++
-  
 }
 
 function newCollisionCheck(player, tile){
@@ -251,20 +375,6 @@ function newCollisionCheck(player, tile){
     player.posY + player.height > tile.posY
   )return true
   return false
-}
-
-function checkIfShouldBeFalling(){
-
-  let testPlayer = new Slime(player.width,player.height,player.posX,player.posY,'idle',null)
-
-  testPlayer.posY = testPlayer.posY + testPlayer.height+32
-  //console.log(testPlayer.posY, testPlayer.getBorders().down);
-
-  for (let i = 0; i < tilesArray.length; i++) {
-    if(!newCollisionCheck(testPlayer, tilesArray[i]) && testPlayer.posY < canvas.height){
-      return true
-    }
-  }
 }
 
 function isPlayerColliding(){
@@ -415,12 +525,6 @@ menu_button_start.addEventListener('click', () => {
   window.requestAnimationFrame(gameLoop)
 })
 
-/* game_state.addEventListener('click', () => {
-  isGameOn = !isGameOn
-  enemyCollision = !enemyCollision
-  window.requestAnimationFrame(gameLoop)
-}) */
-
 document.addEventListener('keydown', (key) => {
   if(key.code == "Escape"){
     if(pause_menu.classList.contains('closed')){
@@ -447,6 +551,8 @@ document.addEventListener('keydown', (key) => {
   if(key.code == "KeyA") playerMovement.left = true
 
   if(key.code == 'Space') playerMovement.jump = true;
+
+  if(key.code == 'KeyW' && key.ctrlKey) key.preventDefault()
 })
 
 document.addEventListener('keyup', (key) => {
@@ -465,10 +571,12 @@ document.addEventListener('keyup', (key) => {
   if(key.code == "KeyA") playerMovement.left = false
 
   if(key.code == 'Space') playerMovement.jump = false;
+
+  if(key.code == 'KeyW' && key.ctrlKey) key.preventDefault()
 })
 
 window.addEventListener('resize', () => {
-  //resizeCanvas()
+  resizeCanvas()
 })
 
 //*Run
