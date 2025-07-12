@@ -1,4 +1,5 @@
-//TODO CURRENT BUG, AFTER FIRST JUMP, IT DOESN'T GO INTO JUMPING STATE AGAIN, IT SOMEHOW GOES INTO FALLING STATE THEN STRAIGHT INTO IDLE AGAIN, ALL IS HAPPENING IN UPDATEPLAYER FOR SURE
+//TODO IMPLEMENT CROUCHING CORRECTLY THEN YOU CAN IMPLEMENT SLIDING AND HIGH JUMP, AFTER THOSE ARE DONE, THEN IMPLEMENT WALK STICK
+//TODo Bug, while jumping, crouch speed reduction should not apply
 
 import {Slime} from './slime.js'
 import map1 from './map1.js';
@@ -46,12 +47,17 @@ let statesArray = [
   },
   {
     type: 'landing',
-    framesTotal: 4,
+    framesTotal: 2,
     framecount: 0
   },
   {
     type: 'bonk',
-    framesTotal: 4,
+    framesTotal: 2,
+    framecount: 0
+  },
+  {
+    type: 'crouchwalk',
+    framesTotal: 24,
     framecount: 0
   },
   {
@@ -127,8 +133,16 @@ function drawPlayer(){
   context.fillRect(player.posX,player.posY,player.width + 32,player.height);
   context.fillRect(player.posX,player.posY,player.width,player.height + 32);
   context.fillRect(player.posX,player.posY - 32,player.width,player.height); */
-  context.fillStyle = 'black';
-  context.fillRect(player.posX,player.posY,player.width,player.height);
+
+  /* if(player.state.type == 'crouching'){
+    context.fillStyle = 'white';
+    context.fillRect(player.posX,player.posY + player.height/2,player.width,player.height/2);
+  }else */{
+    context.fillStyle = 'black';
+    context.fillRect(player.posX,player.posY,player.width,player.height);
+  }
+  
+
 }
 
 function resizeCanvas(){
@@ -199,7 +213,7 @@ function drawMap(){
 
   
   for (let i = 0; i < tilesArray.length; i++) {
-    context.fillStyle='teal';
+    
 
     /* if(movingTo.right && playerMovement.right){
       tilesArray[i].posX -= playerSpeedX
@@ -217,6 +231,9 @@ function drawMap(){
     } */
 
 
+    context.fillStyle='teal';
+    if(tilesArray[i].height < playerLength) context.fillStyle='white';
+    if(tilesArray[i].height > playerLength) context.fillStyle='red';
 
     context.fillRect(tilesArray[i].posX, tilesArray[i].posY, tilesArray[i].width, tilesArray[i].height);
   }
@@ -229,7 +246,6 @@ function updatePlayer(){
   if(player.state.type == 'jumping') risingSpeed -= 4
   if(player.state.type == 'falling' && fallingSpeed < 32) {
     fallingSpeed += 4
-    console.log('falling at speed: ', fallingSpeed);
   }
   
    /* {
@@ -249,14 +265,17 @@ function updatePlayer(){
   }
 
   //* if crouch is pressed, decrease the horizontal speed
-  if(playerMovement.crouch == true && playerSpeedX != 3) playerSpeedX = 3
-
-  //* if crouch is not pressed, horizontal speed is normal
-  if(playerMovement.crouch == false && playerSpeedX != 6) playerSpeedX = 6
+  if(playerMovement.crouch && !playerMovement.run){
+    if(!player.state.type != 'jumping') playerSpeedX = 3
+    else playerSpeedX = 6
+  }
 
   //* if run is pressed, increase the horizontal speed
-  if(playerMovement.run == true && playerSpeedX != 12) playerSpeedX = 12
-
+  if(playerMovement.run && !playerMovement.crouch) playerSpeedX = 12
+  
+  //* if crouch or run are not pressed, horizontal speed is normal
+  if(!playerMovement.crouch && !playerMovement.run) playerSpeedX = 6
+  
   //* if opposite directions are held, do not try to move
   if(playerMovement.left && playerMovement.right) opositesHorizontal = true
 
@@ -266,13 +285,23 @@ function updatePlayer(){
 
     if (player.state.type == 'idle' && !playerMovement.run && !playerMovement.crouch && (playerMovement.left || playerMovement.right)) {
       player.state = statesArray[3]
+      player.state.framecount = 0
     }
     if (player.state.type == 'idle' && playerMovement.run && !playerMovement.crouch){
       player.state = statesArray[4]
+      player.state.framecount = 0
     }
 
-    if (player.state.type == 'idle' && !playerMovement.run && playerMovement.crouch){
+    if ((player.state.type == 'idle' || player.state.type == 'crouchwalk') && !playerMovement.run && playerMovement.crouch){
       player.state = statesArray[5]
+      player.state.framecount = 0
+    }
+
+    if (playerMovement.run && playerMovement.crouch){
+      playerMovement.run = false
+      playerMovement.crouch = false
+      player.state = statesArray[0]
+      player.state.framecount = 0
     }
 
     //* Move Right
@@ -280,6 +309,11 @@ function updatePlayer(){
       if(!isPlayerNotInBounds('right')){
 
         player.posX += playerSpeedX
+
+        if(player.state.type == 'crouching'){
+          player.state = statesArray[8]
+          player.state.framecount = 0
+        }
         
         //*If there is a collision tile to the right, correct player position
         for (let i = 0; i < tilesArray.length; i++) {
@@ -288,10 +322,10 @@ function updatePlayer(){
           }
         }
 
-        //* if viewport goes to the right, change the player position relative to the map movement
+        /* //* if viewport goes to the right, change the player position relative to the map movement
         if(movingTo.right){
           player.posX -= playerSpeedX
-        }
+        } */
 
       }else player.posX = canvas.width - player.width
     }
@@ -302,6 +336,11 @@ function updatePlayer(){
       if(!isPlayerNotInBounds('left')){
         
         player.posX -= playerSpeedX
+
+        if(player.state.type == 'crouching'){
+          player.state = statesArray[8]
+          player.state.framecount = 0
+        }
   
         //*If there is a collision tile to the left, correct player position
         for (let i = 0; i < tilesArray.length; i++) {
@@ -363,7 +402,6 @@ function updatePlayer(){
     }
   }
 
-
   //* if on falling state, move down
   if(player.state.type == 'falling'){
 
@@ -409,13 +447,63 @@ function updatePlayer(){
 
   }
 
+  //* if crouching, reduce size to half  
+  if((player.state.type == 'crouching' || player.state.type == 'crouchwalk') && playerMovement.crouch && player.height > playerLength/2){
+    if(playerMovement.crouch){
+      player.posY += player.height/2
+      player.height = player.height / 2
+    }
+  }
+
+  //* if size reduced and not crouching, set size to normal
+  if(!playerMovement.crouch && player.height < playerLength){
+
+      let isUnderTile = false
+
+      player.height = playerLength
+      player.posY -= playerLength/2
+
+      for (let i = 0; i < tilesArray.length; i++){
+        if(newCollisionCheck(player, tilesArray[i])){
+          isUnderTile = true
+        }
+      }
+
+      if(isUnderTile){
+        player.height = playerLength/2
+        player.posY += playerLength/2
+      }
+  }
+
+  //*
+  if(player.state.type == 'walking' && playerMovement.crouch){
+    player.state = statesArray[8]
+    player.state.framecount = 0
+  }
+
+
+  //* if crouching, not moving, and pressed jump after x frames, do a higher jump
+  if(player.state.type == 'crouching' && player.state.framecount > player.state.framesTotal/2){
+
+    risingSpeed = 64
+
+    if(playerMovement.jump){
+      risingSpeed = 64
+      player.state = statesArray[1]
+      player.state.framecount = 0
+    }
+  }
+
+
+  //* if running, then pressed crouch, change into a slide, which boost speed and reduces height
+
   //console.log(player.state.type, ': ',player.state.framecount);
   console.log(player.state.type)
   player.state.framecount++
 }
 
 function fallIfAirBorne(){
-  if((player.state.type == 'idle' || player.state.type == 'walking' || player.state.type == 'crouching'  || player.state.type == 'running') && player.state.type != 'bonk'){
+  if((player.state.type == 'idle' || player.state.type == 'walking' || player.state.type == 'crouching' || player.state.type == 'crouchwalk'  || player.state.type == 'running') && player.state.type != 'bonk'){
 
     let isAirBorne = true
     //let noCollisionCount = 0
@@ -480,10 +568,16 @@ function getCollisionTilesArray(){
   let arrayIndex = 0
   for (let i = 0; i < map.mapInfo.rows; i++) {
     for (let j = 0; j < map.mapInfo.columns; j++) {
+
       if(map.mapInfo.tiles[arrayIndex] == 1){
         let tile = new collisionTile(tileSize, tileSize, tileSize*j, tileSize*i)
         tilesArray.push(tile)
-      }    
+      }
+
+      if(map.mapInfo.tiles[arrayIndex] == 2){
+        let tile = new collisionTile(tileSize, tileSize/2, tileSize*j, tileSize*i)
+        tilesArray.push(tile)
+      }
       arrayIndex++      
     }
   }
@@ -509,14 +603,19 @@ document.addEventListener('keydown', (key) => {
     }
   }
   
-  if(key.code == "ShiftLeft"){
+  if(key.code == "ControlLeft"){
     key.preventDefault()
     playerMovement.crouch = true
   }
 
-  if(key.code == "KeyD") playerMovement.right = true
+  if(key.code == "ShiftLeft"){
+    key.preventDefault()
+    playerMovement.run = true
+  }
 
-  if(key.code == "KeyA") playerMovement.left = true
+  if(key.code == "ArrowRight") playerMovement.right = true
+
+  if(key.code == "ArrowLeft") playerMovement.left = true
 
   if(key.code == 'Space') playerMovement.jump = true;
 
@@ -524,18 +623,22 @@ document.addEventListener('keydown', (key) => {
 
 document.addEventListener('keyup', (key) => {
 
-  if(key.code == "ShiftLeft"){
+  if(key.code == "ControlLeft"){
     key.preventDefault()
     playerMovement.crouch = false
   }
 
-  if(key.code == "KeyD") playerMovement.right = false
+  if(key.code == "ShiftLeft"){
+    key.preventDefault()
+    playerMovement.run = false
+  }
 
-  if(key.code == "KeyA") playerMovement.left = false
+  if(key.code == "ArrowRight") playerMovement.right = false
+
+  if(key.code == "ArrowLeft") playerMovement.left = false
 
   if(key.code == 'Space') playerMovement.jump = false;
 
-  if(key.code == 'KeyW' && key.ctrlKey) key.preventDefault()
 })
 
 window.addEventListener('resize', () => {
