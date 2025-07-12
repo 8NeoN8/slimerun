@@ -21,7 +21,7 @@ let statesArray = [
   },
   {
     type: 'jumping',
-    framesTotal: 24,
+    framesTotal: 12,
     framecount: 0
   },
   {
@@ -123,9 +123,9 @@ function clearCanvas(){
 
 function drawPlayer(){
   /* context.fillStyle = 'white';
-  context.fillRect(player.posX,player.posY,player.width,player.height + 32);
   context.fillRect(player.posX - 32,player.posY,player.width,player.height);
   context.fillRect(player.posX,player.posY,player.width + 32,player.height);
+  context.fillRect(player.posX,player.posY,player.width,player.height + 32);
   context.fillRect(player.posX,player.posY - 32,player.width,player.height); */
   context.fillStyle = 'black';
   context.fillRect(player.posX,player.posY,player.width,player.height);
@@ -197,13 +197,11 @@ function drawMap(){
 
   }
 
+  
   for (let i = 0; i < tilesArray.length; i++) {
     context.fillStyle='teal';
-    /* if (i % 2 == 0) { 
-      context.fillStyle='cyan';
-    }else context.fillStyle='white'; */
 
-    if(movingTo.right && playerMovement.right){
+    /* if(movingTo.right && playerMovement.right){
       tilesArray[i].posX -= playerSpeedX
     }
     if(movingTo.left && playerMovement.left){
@@ -216,7 +214,7 @@ function drawMap(){
 
     if(movingTo.down && player.state.type == 'falling' && isTilesBelow){
       tilesArray[i].posY -= cameraFallingSpeed*1.25
-    }
+    } */
 
 
 
@@ -229,7 +227,12 @@ function updatePlayer(){
 
   //* increase/decrease vertical movement speeds if needed
   if(player.state.type == 'jumping') risingSpeed -= 4
-  if(player.state.type == 'falling') fallingSpeed += 4 /* {
+  if(player.state.type == 'falling' && fallingSpeed < 32) {
+    fallingSpeed += 4
+    console.log('falling at speed: ', fallingSpeed);
+  }
+  
+   /* {
     if (fallingSpeed < 40) {
       cameraFallingSpeed += 4
       
@@ -238,9 +241,10 @@ function updatePlayer(){
 
   if(!playerMovement.left && !playerMovement.right && !playerMovement.jump && !playerMovement.crouch && !playerMovement.run){
     if(
-      player.state.type != 'falling' && player.state.type != 'jumping' && player.state.type != 'running' && player.state.type != 'walking' && player.state.type != 'landing'
+      player.state.type != 'falling' && player.state.type != 'jumping' && player.state.type != 'landing' && player.state.type != 'bonk'
     ){
       player.state = statesArray[0]
+      player.state.framecount = 0
     }
   }
 
@@ -272,7 +276,7 @@ function updatePlayer(){
     }
 
     //* Move Right
-    if(playerMovement.right && player.state.type != 'landing'){
+    if(playerMovement.right && player.state.type != 'landing' && player.state.type != 'bonk'){
       if(!isPlayerNotInBounds('right')){
 
         player.posX += playerSpeedX
@@ -293,7 +297,7 @@ function updatePlayer(){
     }
 
     //* Move Left
-    if(playerMovement.left  && player.state.type != 'landing'){
+    if(playerMovement.left  && player.state.type != 'landing' && player.state.type != 'bonk'){
 
       if(!isPlayerNotInBounds('left')){
         
@@ -318,44 +322,44 @@ function updatePlayer(){
   }
   //console.log('what the dog doin? >>: ', player.state.type);
   //* if jump pressed, and not already jumping or falling, jump
-  if(playerMovement.jump && player.state.type != 'jumping' && player.state.type != 'falling' && player.state.type != 'landing'){
+  if(playerMovement.jump && player.state.type != 'jumping' && player.state.type != 'falling' && player.state.type != 'landing' && player.state.type != 'bonk'){
     player.state = statesArray[1]
+    player.state.framecount = 0
   }
 
   //* if player is not touching a tile, and inside the canvas, fall by gravity
   fallIfAirBorne()
 
-  //* if in jumping state
-  if(player.state.type == 'jumping'){
+  //* if in jumping state - if rising time has not ended, keep rising
+  if(player.state.type == 'jumping' && player.state.framecount < player.state.framesTotal){
 
-    //* if rising time has not ended, keep rising
-    if(player.state.framecount < player.state.framesTotal){
-      
-      player.posY -= risingSpeed
+    player.posY -= risingSpeed
 
-      //* check for collision while rising, if collided, go into bonk(head collision) state
-      for (let i = 0; i < tilesArray.length; i++) {
-        if (newCollisionCheck(player, tilesArray[i])) {
-          player.posY = tilesArray[i].posY + tilesArray[i].height
-          risingSpeed = 48
-          player.state = statesArray[7]
-          break
-        }
+    //* check for collision while rising, if collided, go into bonk(head collision) state
+    for (let i = 0; i < tilesArray.length; i++) {
+      if (newCollisionCheck(player, tilesArray[i])) {
+        player.posY = tilesArray[i].posY + tilesArray[i].height
+        player.state = statesArray[7]
+        player.state.framecount = 0
+        risingSpeed = 48
+        break
       }
     }
+  }
 
-    //* if rising time has ended, start falling
-    if(player.state.framecount >= player.state.framesTotal){
-      player.state = statesArray[2]
-      risingSpeed = 48
-    }
-    
+  //* if in jumping state - if rising time has ended, start falling
+  if(player.state.type == 'jumping' && player.state.framecount >= player.state.framesTotal){
+    player.state = statesArray[2]
+    player.state.framecount = 0
+    risingSpeed = 48
   }
 
   //* if in bonk state (head collision), after x frames, start falling
   if(player.state.type == 'bonk'){
+    if(player.state.framecount < player.state.framesTotal) console.log('bonking');
     if(player.state.framecount >= player.state.framesTotal){
       player.state = statesArray[2]
+      player.state.framecount = 0
     }
   }
 
@@ -369,20 +373,23 @@ function updatePlayer(){
 
     if(isPlayerNotInBounds('down')){
       player.posY = canvas.height - player.height
-      landed = true
+      player.state = statesArray[6]
+      player.state.framecount = 0
+      risingSpeed = 48
+      fallingSpeed = 0
     }
 
     for (let i = 0; i < tilesArray.length; i++) {
       if (newCollisionCheck(player, tilesArray[i])) {
         player.posY = tilesArray[i].posY - player.height
         landed = true
-        break
       }
     }
     
     if(landed){
-      console.log('landinglag');
       player.state = statesArray[6]
+      player.state.framecount = 0
+      risingSpeed = 48
       fallingSpeed = 0
     }
 
@@ -391,10 +398,13 @@ function updatePlayer(){
   //* if in landing state, count landing frames and change state if needed
   if(player.state.type == 'landing'){
     if(player.state.framecount < player.state.framesTotal){
+      console.log('landing lag');
       //* check frame and do animation, not needed for functionality right now
     }
     if(player.state.framecount >= player.state.framesTotal){
+      console.log('landed');
       player.state = statesArray[0]
+      player.state.framecount = 0
     }
 
   }
@@ -405,7 +415,7 @@ function updatePlayer(){
 }
 
 function fallIfAirBorne(){
-  if(player.state.type == 'idle' || player.state.type == 'walking' || player.state.type == 'crouching'  || player.state.type == 'running'){
+  if((player.state.type == 'idle' || player.state.type == 'walking' || player.state.type == 'crouching'  || player.state.type == 'running') && player.state.type != 'bonk'){
 
     let isAirBorne = true
     //let noCollisionCount = 0
@@ -416,6 +426,7 @@ function fallIfAirBorne(){
         isAirBorne = false
       }//else noCollisionCount++
     }
+    if(isPlayerNotInBounds('down')) isAirBorne = false
 
     player.posY -= player.height/2
 
@@ -428,6 +439,7 @@ function fallIfAirBorne(){
     
     if(isAirBorne){
       player.state = statesArray[2]
+      player.state.framecount = 0
     }
 
     //! FUNCTIONAL BUG, DOESN'T BREAK ANYTHING YET; BUT IT IS HERE
@@ -448,16 +460,16 @@ function newCollisionCheck(player, tile){
 
 function isPlayerNotInBounds(bound){
   if(bound == 'left'){
-    if(player.posX - playerSpeedX <= 0) return true
+    if(player.posX <= 0) return true
   }
   if(bound == 'right'){
-    if(player.posX + playerSpeedX >= canvas.width - player.width) return true
+    if(player.posX >= canvas.width - player.width) return true
   }
   if(bound == 'up'){
-    if(player.posY - playerSpeedX <= 0) return true
+    if(player.posY <= 0) return true
   }
   if(bound == 'down'){
-    if(player.posY + playerSpeedX >= canvas.height - player.height) return true
+    if(player.posY >= canvas.height - player.height) return true
   }
 }
 
