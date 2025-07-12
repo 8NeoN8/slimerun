@@ -1,5 +1,8 @@
-//TODO IMPLEMENT CROUCHING CORRECTLY THEN YOU CAN IMPLEMENT SLIDING AND HIGH JUMP, AFTER THOSE ARE DONE, THEN IMPLEMENT WALK STICK
+//TODO IMPLEMENT IMPLEMENT SLIDING, AFTER THOSE ARE DONE, THEN IMPLEMENT WALK STICK
 //TODo Bug, while jumping, crouch speed reduction should not apply
+//TODO Bug, while crouching and under a half tile, jump should not be processed,
+//TODO bug, while crouching under a half tile, crouchinh should be the state even if crouch is not pressed
+//TODO bug, if under a any size tile, jumping should not cause falling, bonk, or landing states, but instead keep it as idle or any moving state after the jump
 
 import {Slime} from './slime.js'
 import map1 from './map1.js';
