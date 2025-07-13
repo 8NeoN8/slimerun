@@ -69,8 +69,6 @@ let statesArray = [
     framecount: 0
   },
 ]
-
-console.log(canvas.height);
 let player = new Slime(playerLength, playerLength, 0, canvas.height - playerLength*8, statesArray[0], null)
 let playerSpeedX = 8
 let cameraFallingSpeed = 28
@@ -110,20 +108,44 @@ let movingTo = {
   right: false
 }
 
-
+let fps = 60
+let fpsInterval
+let startTime
+let now
+let then
+let elapsed
 
 //*Methods
 
-function gameLoop(){
-  if(!isGameOn) return
-  clearCanvas()
-  updatePlayer()
-  drawCanvas()
-  drawMap()
-  drawCamera()
-  drawPlayer()
+function startAnimating(){
+  fpsInterval = 1000 / fps
+  then = performance.now()
+  startTime = then
+  gameLoop()
+}
 
-  if(!enemyCollision) window.requestAnimationFrame(gameLoop)
+
+function gameLoop(){
+
+
+  if(!isGameOn) return
+
+  window.requestAnimationFrame(gameLoop)
+
+  now = performance.now()
+  elapsed = now - then
+
+  if(elapsed > fpsInterval){
+    then = now - (elapsed % fpsInterval)
+
+    clearCanvas()
+    updatePlayer()
+    drawCanvas()
+    drawMap()
+    drawCamera()
+    drawPlayer()
+  }
+
 }
 
 function clearCanvas(){
@@ -206,7 +228,6 @@ function drawMap(){
     for (let i = 0; i < tilesArray.length; i++) {
       if(tilesArray[i].posY + tilesArray[i].height > camera.posY + canvas.height/1.5){
         isTilesBelow = true
-        //console.log("there's a tile below");
         break
       }
       
@@ -362,7 +383,6 @@ function updatePlayer(){
     }
     
   }
-  //console.log('what the dog doin? >>: ', player.state.type);
   //* if jump pressed, and not already jumping or falling, jump
   if(playerMovement.jump && player.state.type != 'jumping' && player.state.type != 'falling' && player.state.type != 'landing' && player.state.type != 'bonk'){
     player.state = statesArray[1]
@@ -398,7 +418,9 @@ function updatePlayer(){
 
   //* if in bonk state (head collision), after x frames, start falling
   if(player.state.type == 'bonk'){
-    if(player.state.framecount < player.state.framesTotal) console.log('bonking');
+    if(player.state.framecount < player.state.framesTotal) {
+
+    }
     if(player.state.framecount >= player.state.framesTotal){
       player.state = statesArray[2]
       player.state.framecount = 0
@@ -439,11 +461,10 @@ function updatePlayer(){
   //* if in landing state, count landing frames and change state if needed
   if(player.state.type == 'landing'){
     if(player.state.framecount < player.state.framesTotal){
-      console.log('landing lag');
       //* check frame and do animation, not needed for functionality right now
     }
     if(player.state.framecount >= player.state.framesTotal){
-      console.log('landed');
+      //console.log('landed');
       player.state = statesArray[0]
       player.state.framecount = 0
     }
@@ -500,7 +521,6 @@ function updatePlayer(){
 
   //* if running, then pressed crouch, change into a slide, which boost speed and reduces height
 
-  //console.log(player.state.type, ': ',player.state.framecount);
   console.log(player.state.type)
   player.state.framecount++
 }
@@ -520,13 +540,6 @@ function fallIfAirBorne(){
     if(isPlayerNotInBounds('down')) isAirBorne = false
 
     player.posY -= player.height/2
-
-    /* if (noCollisionCount < tilesArray.length) {
-      console.log(noCollisionCount, tilesArray.length);
-      if(playerMovement.left || playerMovement.right) player.state = statesArray[3]
-      else player.state = statesArray[0]
-      console.log(player.state.type, 'aksjdf');
-    } */
     
     if(isAirBorne){
       player.state = statesArray[2]
@@ -591,7 +604,7 @@ menu_button_start.addEventListener('click', () => {
   main_menu.classList.add('closed')
   isGameOn = !isGameOn
   enemyCollision = !enemyCollision
-  window.requestAnimationFrame(gameLoop)
+  startAnimating()
 })
 
 document.addEventListener('keydown', (key) => {
@@ -602,7 +615,7 @@ document.addEventListener('keydown', (key) => {
     }else{
       pause_menu.classList.add('closed')
       isGameOn = true
-      window.requestAnimationFrame(gameLoop)
+      startAnimating()
     }
   }
   
