@@ -3,6 +3,7 @@
 //TODO Bug, while crouching and under a half tile, jump should not be processed,
 //TODO bug, while crouching under a half tile, crouchinh should be the state even if crouch is not pressed
 //TODO bug, if under a any size tile, jumping should not cause falling, bonk, or landing states, but instead keep it as idle or any moving state after the jump
+//TODO Refactor, change most conditionals in updatePlayer to be their own function to better control the amount of calculations done
 
 import {Slime} from './slime.js'
 import map1 from './map1.js';
@@ -46,7 +47,8 @@ let statesArray = [
   {
     type: 'crouching',
     framesTotal: 24,
-    framecount: 0
+    framecount: 0,
+    isCrouching: true
   },
   {
     type: 'landing',
@@ -61,7 +63,8 @@ let statesArray = [
   {
     type: 'crouchwalk',
     framesTotal: 24,
-    framecount: 0
+    framecount: 0,
+    isCrouching: true
   },
   {
     type: 'sliding',
@@ -73,6 +76,9 @@ let player = new Slime(playerLength, playerLength, 0, canvas.height - playerLeng
 let playerSpeedX = 8
 let cameraFallingSpeed = 28
 let cameraJumpingSpeed = 16
+
+let globalFrameCounter = 0
+let stateFrameCount
 
 let tileSize = 64
 
@@ -144,6 +150,7 @@ function gameLoop(){
     drawMap()
     drawCamera()
     drawPlayer()
+    globalFrameCounter++
   }
 
 }
@@ -279,9 +286,22 @@ function updatePlayer(){
     }
   } */
 
+    let isUnderTile = false
+
+    let ceilingCheck = {...player};
+    ceilingCheck.posY -= playerLength/2
+
+    for (let i = 0; i < tilesArray.length; i++){
+      if(newCollisionCheck(player, tilesArray[i])){
+        
+      }
+    }
+
+
   if(!playerMovement.left && !playerMovement.right && !playerMovement.jump && !playerMovement.crouch && !playerMovement.run){
     if(
-      player.state.type != 'falling' && player.state.type != 'jumping' && player.state.type != 'landing' && player.state.type != 'bonk'
+      player.state.type != 'falling' && player.state.type != 'jumping' && player.state.type != 'landing' && player.state.type != 'bonk' 
+      && (!isUnderTile)
     ){
       player.state = statesArray[0]
       player.state.framecount = 0
@@ -342,6 +362,7 @@ function updatePlayer(){
         //*If there is a collision tile to the right, correct player position
         for (let i = 0; i < tilesArray.length; i++) {
           if (newCollisionCheck(player, tilesArray[i])) {
+            console.log('check on right move');
             player.posX = tilesArray[i].posX - tilesArray[i].width  
           }
         }
@@ -369,6 +390,7 @@ function updatePlayer(){
         //*If there is a collision tile to the left, correct player position
         for (let i = 0; i < tilesArray.length; i++) {
           if (newCollisionCheck(player, tilesArray[i])) {
+            console.log('check on left move');
             player.posX = tilesArray[i].posX + tilesArray[i].width  
           }
         }
@@ -400,8 +422,9 @@ function updatePlayer(){
     //* check for collision while rising, if collided, go into bonk(head collision) state
     for (let i = 0; i < tilesArray.length; i++) {
       if (newCollisionCheck(player, tilesArray[i])) {
+        console.log('check on rising');
         player.posY = tilesArray[i].posY + tilesArray[i].height
-        player.state = statesArray[7]
+        player.state = statesArray[2]
         player.state.framecount = 0
         risingSpeed = 48
         break
@@ -444,6 +467,7 @@ function updatePlayer(){
 
     for (let i = 0; i < tilesArray.length; i++) {
       if (newCollisionCheck(player, tilesArray[i])) {
+        console.log('check on falling move');
         player.posY = tilesArray[i].posY - player.height
         landed = true
       }
@@ -482,16 +506,9 @@ function updatePlayer(){
   //* if size reduced and not crouching, set size to normal
   if(!playerMovement.crouch && player.height < playerLength){
 
-      let isUnderTile = false
 
       player.height = playerLength
       player.posY -= playerLength/2
-
-      for (let i = 0; i < tilesArray.length; i++){
-        if(newCollisionCheck(player, tilesArray[i])){
-          isUnderTile = true
-        }
-      }
 
       if(isUnderTile){
         player.height = playerLength/2
@@ -534,6 +551,7 @@ function fallIfAirBorne(){
     player.posY += player.height/2
     for (let i = 0; i < tilesArray.length; i++){
       if(newCollisionCheck(player, tilesArray[i])){
+        console.log('check on can fall');
         isAirBorne = false
       }//else noCollisionCount++
     }
@@ -597,6 +615,10 @@ function getCollisionTilesArray(){
       arrayIndex++      
     }
   }
+}
+
+function selectState(type){
+  player.state = statesArray.find(state => state.type = type)
 }
 
 //*Watch
