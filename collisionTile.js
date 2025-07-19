@@ -1,9 +1,10 @@
 export class collisionTile {
-  constructor(width, height, posX, posY){
+  constructor(width, height, posX, posY, type){
     this.width = width,
     this.height = height,
     this.posX = posX,
     this.posY = posY
+    this.type = type
   }
 
   get borders(){

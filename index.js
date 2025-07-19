@@ -1,11 +1,4 @@
-//TODO IMPLEMENT IMPLEMENT SLIDING, AFTER THOSE ARE DONE, THEN IMPLEMENT WALK STICK
-//TODo Bug, while jumping, crouch speed reduction should not apply
-//TODO Bug, while crouching and under a half tile, jump should not be processed,
-//TODO bug, while crouching under a half tile, crouchinh should be the state even if crouch is not pressed
-//TODO bug, if under a any size tile, jumping should not cause falling, bonk, or landing states, but instead keep it as idle or any moving state after the jump
-//TODO Refactor, change most conditionals in updatePlayer to be their own function to better control the amount of calculations done
-
-//~ fixed bug that jumping while crouched would keep the crouching speed instead of going to normal
+//TODO Optimize movement again, slowdowns happens on certain situations
 
 import {Slime} from './slime.js'
 import map1 from './map1.js';
@@ -17,6 +10,11 @@ const context = canvas.getContext('2d')
 
 let playerLength = 64
 resizeCanvas()
+
+context.mozImageSmoothingEnabled = true;
+context.webkitImageSmoothingEnabled = true;
+context.msImageSmoothingEnabled = true;
+context.imageSmoothingEnabled = true;
 
 
 let tilesArray = []
@@ -74,10 +72,10 @@ let statesArray = [
     framecount: 0
   },
 ]
-let player = new Slime(playerLength, playerLength, 0, canvas.height - playerLength*4, statesArray[0], null)
+let player = new Slime(playerLength, playerLength, 64, canvas.height - playerLength*4, statesArray[0], null)
 let playerSpeedX = 6
 let playerCrouchSpeed = 3
-let playerWalkSpeed = 8
+let playerWalkSpeed = 6
 let playerRunSpeed = 12
 let cameraFallingSpeed = 28
 let cameraJumpingSpeed = 16
@@ -113,6 +111,9 @@ let isUnderTile = false
 let fallBetween = false
 
 let isAirBorne = false
+
+let tutorialText = ['"Spacebar" to jump', '"shift" to run', 'Hold Crouch and dont move to do a high jump',"Crouch while running to slide", '"Control" to crouch']
+let textCount = 0
 
 const camera = {
   get posX () {
@@ -201,7 +202,7 @@ function drawCamera(){
 
 function drawCanvas(){
   context.beginPath();
-  context.fillStyle='rgb(142, 239, 173)';
+  context.fillStyle='rgba(43, 105, 63, 1)';
   context.fillRect(0,0,canvas.width, canvas.height);
 }
 
@@ -223,8 +224,8 @@ function drawMap(){
     movingTo.up = true
   }
 
-  if(camera.posX + player.width/2 < 0){
-    //movingTo.left = true
+  if(camera.posX + player.width/2 < 0 && player.posX != 0){
+    movingTo.left = true
   }
 
   //* if viewport is past bottom canvas border
@@ -232,21 +233,21 @@ function drawMap(){
   if(camera.posY + (canvas.height/1.5) > canvas.height){
     movingTo.down = true
 
-    for (let i = 0; i < tilesArray.length; i++) {
+    /* for (let i = 0; i < tilesArray.length; i++) {
       if(tilesArray[i].posY + tilesArray[i].height > camera.posY + canvas.height/1.5){
         isTilesBelow = true
         break
       }
       
     }
-
+ */
   }
 
   
   for (let i = 0; i < tilesArray.length; i++) {
     
 
-    /* if(movingTo.right && playerMovement.right){
+    if(movingTo.right && playerMovement.right){
       tilesArray[i].posX -= playerSpeedX
     }
     if(movingTo.left && playerMovement.left){
@@ -254,21 +255,32 @@ function drawMap(){
     }
 
     if(movingTo.up && player.state.name == 'jumping'){
-      tilesArray[i].posY += cameraJumpingSpeed/1.5
+      //tilesArray[i].posY += cameraJumpingSpeed/1.5
     }
 
-    if(movingTo.down && player.state.name == 'falling' && isTilesBelow){
-      tilesArray[i].posY -= cameraFallingSpeed*1.25
-    } */
+    if(movingTo.down && player.state.name == 'falling'){
+      //tilesArray[i].posY -= cameraFallingSpeed
+    }
 
 
     context.fillStyle='teal';
     if(i % 2 != 0) context.fillStyle = 'darkcyan'
     if(tilesArray[i].height < playerLength) context.fillStyle='teal';
     if(tilesArray[i].width < playerLength) context.fillStyle='blue';
+    if(tilesArray[i].type == 'restart') context.fillStyle= 'none';
+
+    if(tilesArray[i].type == 'text'){
+      if(textCount > 4) textCount = 0
+
+      context.fillStyle = 'orange'
+      context.font = '20px arial'
+      context.fillText(tutorialText[textCount], tilesArray[i].posX, tilesArray[i].posY, 256);
+      
+      textCount++
+    }
 
 
-    context.fillRect(tilesArray[i].posX, tilesArray[i].posY, tilesArray[i].width, tilesArray[i].height);
+    if(tilesArray[i].type != 'text') context.fillRect(tilesArray[i].posX, tilesArray[i].posY, tilesArray[i].width, tilesArray[i].height);
   }
 }
 
@@ -353,7 +365,7 @@ function updatePlayer(){
 
         //* check for collision while rising, if collided, go into bonk(head collision) state
         for (let i = 0; i < tilesArray.length; i++) {
-          if (newCollisionCheck(collisionTester, tilesArray[i])) {
+          if (newCollisionCheck(collisionTester, tilesArray[i]) && tilesArray[i].type != 'text') {
             player.posY = tilesArray[i].posY + tilesArray[i].height
             risingSpeed = 48
             collision = true
@@ -408,6 +420,11 @@ function updatePlayer(){
 
       playerSpeedX = playerWalkSpeed
 
+      if(player.height < playerLength){
+        player.posY -= playerLength/2
+        player.height = playerLength
+      }
+
       if(canPlayerFall.air){
         fallBetween = true
         setState('falling')
@@ -433,6 +450,11 @@ function updatePlayer(){
       break;
     case 'running':
       if(player.state.totalFrames != 24) player.state.totalFrames = 24
+
+      if(player.height < playerLength){
+        player.posY -= playerLength/2
+        player.height = playerLength
+      }
 
       playerSpeedX = playerRunSpeed
       risingSpeed = 48
@@ -635,6 +657,7 @@ function isPlayerNotInBounds(bound, entity){
 
 function getCollisionTilesArray(){
 
+  tilesArray = []
   let map = map1
 
   let arrayIndex = 0
@@ -642,24 +665,36 @@ function getCollisionTilesArray(){
     for (let j = 0; j < map.mapInfo.columns; j++) {
 
       if(map.mapInfo.tiles[arrayIndex] == 1){
-        let tile = new collisionTile(tileSize, tileSize, tileSize*j, tileSize*i)
+        let tile = new collisionTile(tileSize, tileSize, tileSize*j, tileSize*i, 'full')
         tilesArray.push(tile)
       }
 
       if(map.mapInfo.tiles[arrayIndex] == 2){
-        let tile = new collisionTile(tileSize, tileSize/2, tileSize*j, tileSize*i)
+        let tile = new collisionTile(tileSize, tileSize/2, tileSize*j, tileSize*i, 'half-top')
         tilesArray.push(tile)
       }
 
       if(map.mapInfo.tiles[arrayIndex] == 3){
-        let tile = new collisionTile(tileSize/2, tileSize, tileSize*j, tileSize*i)
+        let tile = new collisionTile(tileSize/2, tileSize, tileSize*j, tileSize*i,'half-left')
         tilesArray.push(tile)
       }
 
       if(map.mapInfo.tiles[arrayIndex] == 4){
-        let tile = new collisionTile(tileSize/2, tileSize, tileSize*j + playerLength/2, tileSize*i)
+        let tile = new collisionTile(tileSize/2, tileSize, tileSize*j + playerLength/2, tileSize*i,'half-right')
         tilesArray.push(tile)
       }
+
+      if(map.mapInfo.tiles[arrayIndex] == 5){
+        let tile = new collisionTile(tileSize, tileSize, tileSize*j, tileSize*i, 'restart')
+        tilesArray.push(tile)
+      }
+
+      if(map.mapInfo.tiles[arrayIndex] == 10){
+        let tile = new collisionTile(tileSize, tileSize, tileSize*j, tileSize*i, 'text')
+        tilesArray.push(tile)
+      }
+
+
 
       arrayIndex++      
     }
@@ -678,7 +713,7 @@ function isPlayerAirborne(){
 
   for (let i = 0; i < tilesArray.length; i++){
     //console.log(collisionTester.posY + collisionTester.height, tilesArray[i].posY, 'check in the for');
-    if(newCollisionCheck(collisionTester, tilesArray[i])){
+    if(newCollisionCheck(collisionTester, tilesArray[i]) && tilesArray[i].type != 'text'){
       //console.log('NO ESTA EN EL AIRE NOJODA');
       isAirBorne = false
       tileCollided = tilesArray[i]
@@ -707,7 +742,7 @@ function isPlayerUnderTile(){
   ceilingCheck.posY -= playerLength/2
 
   for (let i = 0; i < tilesArray.length; i++){
-    if(newCollisionCheck(ceilingCheck, tilesArray[i])){
+    if(newCollisionCheck(ceilingCheck, tilesArray[i]) && tilesArray[i].type != 'text'){
       isIt = true
       break
     }
@@ -750,7 +785,7 @@ function playerHorizontalMovement(){
       if(!isCollision){
         //*If there is a collision tile to the right
         for (let i = 0; i < tilesArray.length; i++) {
-          if (newCollisionCheck(collisionTester, tilesArray[i])) {
+          if (newCollisionCheck(collisionTester, tilesArray[i]) && tilesArray[i].type != 'text') {
             player.posX = tilesArray[i].posX - tilesArray[i].width
             if(tilesArray[i].width < playerLength) player.posX = tilesArray[i].posX - tilesArray[i].width*2
             isCollision = true
@@ -761,10 +796,10 @@ function playerHorizontalMovement(){
 
       if(!isCollision) player.posX += playerSpeedX
 
-      /* //* if viewport goes to the right, change the player position relative to the map movement
+      //* if viewport goes to the right, change the player position relative to the map movement
       if(movingTo.right){
         player.posX -= playerSpeedX
-      } */
+      }
 
       collisionTester = {}
 
@@ -782,7 +817,7 @@ function playerHorizontalMovement(){
         
         //*If there is a collision tile to the left, correct player position
         for (let i = 0; i < tilesArray.length; i++) {
-          if (newCollisionCheck(collisionTester, tilesArray[i])) {
+          if (newCollisionCheck(collisionTester, tilesArray[i]) && tilesArray[i].type != 'text') {
             player.posX = tilesArray[i].posX + tilesArray[i].width
             isCollision = true
             break
@@ -791,10 +826,10 @@ function playerHorizontalMovement(){
 
         if(!isCollision) player.posX -= playerSpeedX
   
-        /* //* if viewport goes to the left, change the player position relative to the map movement
+        //* if viewport goes to the left, change the player position relative to the map movement
         if(movingTo.left){
           player.posX += playerSpeedX
-        } */
+        }
 
       }else player.posX = 0
       
