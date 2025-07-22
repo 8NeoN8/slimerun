@@ -14,20 +14,25 @@
       <canvas id="slimerun-game" width="600" height="600"></canvas>
     </div>
 
+    <div class="fps-display" id="fps_display"></div>
+
     <div class="main-menu menu" id="main_menu">
       <h1 class="menu-header">Slimerun</h1>
       <ul class="menu-list">
         <li class="menu-item" id="menu_button_start">
           START
         </li>
-        <li class="menu-item">
+        <li class="menu-item" id="menu_button_continue">
           CONTINUE
         </li>
-        <li class="menu-item">
+        <li class="menu-item" id="menu_button_settings">
           SETTINGS
         </li>
-        <li class="menu-item">
+        <li class="menu-item" id="menu_button_credits">
           CREDITS
+        </li>
+        <li class="menu-item" id="menu_button_quit">
+          QUIT
         </li>
       </ul>
     </div>
@@ -35,6 +40,11 @@
     <div class="main-menu menu closed" id="pause_menu">
       pause
     </div>
+
+    <div class="menu closed" id="settings_menu">
+
+    </div>
+
 
   </main>
   <script type="module" src="index.js"></script>
