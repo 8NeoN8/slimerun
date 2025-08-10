@@ -52,13 +52,7 @@ let then
 let elapsed
 
 //* state variables
-let isSliding = false
-let isAirBorne = false
 let lastSlideFrame = 60
-let isUnderTile = false
-let fallBetween = false
-let canPlayerFall = false
-let canPlayerJump = null
 let movingTo = {
   right: false,
   left: false,
@@ -121,6 +115,8 @@ let cameraFallingSpeed = 28
 let cameraJumpingSpeed = 16
 let fallingSpeed = 0
 let risingSpeed = 48
+let lockSlideRight = false
+let lockSlideLeft = false
 let opositesHorizontal = false
 const camera = {
   get posX () {
@@ -248,20 +244,14 @@ function updatePlayer(){
 
   }
 
+  //* get if player is under any type of collision tile
   if(playerCollision.down.collision && playerCollision.up.collision) playerIsUnderTile = true
 
+  //* get if playe can jump
   if(playerCollision.down.collision && !playerIsUnderTile ) playerCanJump = true
 
-  if(!playerCollision.down.collision) playerIsAirborne = true
-
-  //* get if player is under any type of collision tile
-  isUnderTile = isPlayerUnderTile()
-
   //* get if player is airborne so that it can fall
-  canPlayerFall = isPlayerAirborne()
-
-  //* get if playe can jump
-  canPlayerJump = canJump(isUnderTile)
+  if(!playerCollision.down.collision) playerIsAirborne = true
 
   //* manage all horizotal movement and speeds
   playerHorizontalMovement(playerCollision)
@@ -333,6 +323,9 @@ function updatePlayer(){
     case 'jumping':
       if(player.state.totalFrames != 12) player.state.totalFrames = 12
 
+        lockSlideRight = false
+        lockSlideLeft = false
+
       //* decrease rising speed until apex (total frames) reached
       risingSpeed -= 4
 
@@ -380,67 +373,72 @@ function updatePlayer(){
     case 'walking':
       if(player.state.totalFrames != 24) player.state.totalFrames = 24
 
+      lockSlideRight = false
+      lockSlideLeft = false
+
       playerSpeedX = playerWalkSpeed
 
-      if(player.height < playerLength){
+      if(player.height < playerLength && playerCanJump){
         player.posY -= playerLength/2
         player.height = playerLength
       }
 
-      if(canPlayerFall.air){
-        fallBetween = true
+      if(playerIsAirborne){
         setState('falling')
       }
 
       //* if crouch is pressed while walkin, crouch
-      if(player.state.name == 'walking' && playerMovement.crouch){
+      if(playerMovement.crouch){
         setState('crouchwalk')
       }
 
       //* if run is pressed while walkin, run
-      if(player.state.name == 'walking' && playerMovement.run && player.height == playerLength){
+      if(playerMovement.run && player.height == playerLength && !playerMovement.crouch){
         setState('running')
       }
 
-      if(canPlayerJump && playerMovement.jump){
+      if(playerCanJump && playerMovement.jump){
         setState('jumping')
       }
 
-      if(!playerMovement.right && !playerMovement.left && player.state.name != 'idle') setState('idle')
+      if(!playerMovement.right && !playerMovement.left) setState('idle')
       
       
       break;
     case 'running':
       if(player.state.totalFrames != 24) player.state.totalFrames = 24
 
-      if(player.height < playerLength){
+      lockSlideRight = false
+      lockSlideLeft = false
+
+      if(player.height < playerLength && playerCanJump){
         player.posY -= playerLength/2
         player.height = playerLength
       }
 
       playerSpeedX = playerRunSpeed
-      risingSpeed = 48
 
-      if(canPlayerFall.air){
-        fallBetween = true
+      if(playerIsAirborne){
         setState('falling')
       }
 
-      if(canPlayerJump && playerMovement.jump){
+      if(playerCanJump && playerMovement.jump){
         setState('jumping')
       }
 
-      if(!isUnderTile && !playerMovement.run){
+      if(!playerIsUnderTile && !playerMovement.run && !playerMovement.crouch){
         setState('walking')
       }
 
+      if(!playerMovement.right && !playerMovement.left) setState('idle')
+
       if(playerMovement.crouch){
+        if(playerMovement.right) lockSlideRight = true
+        if(playerMovement.left) lockSlideLeft = true
         if(globalFrameCounter < 60){
-          isSliding = true
           setState('sliding')
         }
         if(globalFrameCounter - lastSlideFrame >= 30){
-          isSliding = true
           setState('sliding')
         }
       }
@@ -454,48 +452,48 @@ function updatePlayer(){
       
 
       //* if crouching, reduce size to half  
-      if(playerMovement.crouch && player.height > playerLength/2){
+      if(player.height > playerLength/2){
         player.posY += player.height/2
         player.height = player.height / 2
       }
 
       //* jump if you must
-      if(canPlayerJump && playerMovement.jump){
+      if(playerCanJump && playerMovement.jump){
         playerSpeedX = playerWalkSpeed
         setState('jumping')
       }
 
       //* if not under a tile and not pressing crouch, go back to normal size
-      if(!isUnderTile && !playerMovement.crouch && player.state.name != 'idle'){
+      if(!playerIsUnderTile && !playerMovement.crouch){
         player.posY -= playerLength/2
         player.height = playerLength
         setState('idle')
       }
 
-
       //* if crouching, not moving, and pressed jump after x frames, do a higher jump
-      if(stateFrameCount > 12){
+      if(stateFrameCount > 12 && playerMovement.crouch){
         risingSpeed = 64
       }
 
-     
-      
       break;
     case 'landing':
       if(player.state.totalFrames != 2) player.state.totalFrames = 2
-      fallBetween = false
-      //playerSpeedY = -10
+
+      lockSlideRight = false
+      lockSlideLeft = false
 
       //* if in landing state, count landing frames and change state if needed
-      if(player.state.name == 'landing' && stateFrameCount < player.state.totalFrames){
+
+      if(stateFrameCount < player.state.totalFrames){
         //* check frame and do animation, not needed for functionality right now
       }
-      if(player.state.name == 'landing' && stateFrameCount >= player.state.totalFrames){
-        if(!playerMovement.left && !playerMovement.right && player.state.name != 'idle') setState('idle')
+
+      if(stateFrameCount >= player.state.totalFrames){
+
+        if(!playerMovement.left && !playerMovement.right) setState('idle')
+
         if(playerMovement.left || playerMovement.right){
           setState('walking')
-          if(playerMovement.crouch) setState('crouchwalk')
-          if(playerMovement.run) setState('running')
         }
       }
       
@@ -503,29 +501,31 @@ function updatePlayer(){
     case 'crouchwalk':
       if(player.state.totalFrames != 24) player.state.totalFrames = 24
 
+      lockSlideRight = false
+      lockSlideLeft = false
+
       if(player.height < playerLength){
         playerSpeedX = playerCrouchSpeed
       }
       risingSpeed = 48
 
-      if(canPlayerFall.air){
-        fallBetween = true
+      if(playerIsAirborne){
         setState('falling')
       }
 
-      //* if crouching, reduce size to half  
+      //* reduce size to half  
       if(playerMovement.crouch && player.height > playerLength/2){
         player.posY += player.height/2
         player.height = player.height / 2
       }
 
       //* if can jump and jump pressed, perhaps, jump
-      if(canPlayerJump && playerMovement.jump){
+      if(playerCanJump && playerMovement.jump){
         setState('jumping')
       }
 
       //* if not under a tile and not pressing crouch, go back to normal size
-      if(!isUnderTile && !playerMovement.crouch){
+      if(!playerIsUnderTile && !playerMovement.crouch){
         player.posY -= playerLength/2
         player.height = playerLength
         setState('walking')
@@ -533,7 +533,7 @@ function updatePlayer(){
 
       if(!playerMovement.left && !playerMovement.right) setState('crouching')
 
-      if(canPlayerFall.air) setState('falling')
+      if(playerIsAirborne) setState('falling')
       
       break;
     case 'sliding':
@@ -546,29 +546,32 @@ function updatePlayer(){
 
       playerSpeedX = playerRunSpeed*1.5
 
+      if(playerMovement.right) lockSlideRight = true
+      if(playerMovement.left) lockSlideLeft = true
+
 
       if(stateFrameCount > 12){
+        lockSlideRight = false
+        lockSlideLeft = false
 
         lastSlideFrame = globalFrameCounter
 
-        if(!isUnderTile){
+        if(!playerIsUnderTile){
           player.posY -= playerLength/2
           player.height = playerLength
           setState('running')
         }else setState('crouchwalk')
 
-        if(canPlayerFall.air) {
+        if(playerIsAirborne){
           playerSpeedX = playerRunSpeed
           setState('falling')
         }
       }
 
-      if(canPlayerJump && playerMovement.jump){
+      if(playerCanJump && playerMovement.jump){
         risingSpeed = 56
         setState('jumping')
       }
-
-      
       break;
     default:
       console.log('What the dog doin?');
@@ -587,6 +590,7 @@ function updatePlayer(){
       break; */
   }
   
+  //^ Notice: slide locking is not working how it was intented fully, can't change direction after pressing slide as intented, but pressing opposite direction stops slide movement
   console.log(player.state.name);
   stateFrameCount++
 }
@@ -914,7 +918,7 @@ function playerHorizontalMovement(playerCollision){
   if(!opositesHorizontal && player.state.name != 'landing' && player.state.name != 'bonk'){
 
     //* Move Right
-    if(playerMovement.right){
+    if((playerMovement.right && !lockSlideLeft) || lockSlideRight){
 
       if(playerCollision.right.collision){
         player.posX = playerCollision.right.position - player.width
@@ -953,7 +957,7 @@ function playerHorizontalMovement(playerCollision){
     }
 
     //* Move Left
-    if(playerMovement.left){
+    if((playerMovement.left && !lockSlideRight) || lockSlideLeft){
 
       if(playerCollision.left.collision){
         player.posX = playerCollision.left.position
